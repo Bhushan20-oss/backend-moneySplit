@@ -5,3 +5,20 @@ node_modules/
 
 prisma/*.db
 npm-debug.log*
+
+
+
+node_modules/
+
+.env
+.env.*
+
+!.env.example
+
+.agents/
+.claude/
+.windsurf/
+
+skills-lock.json
+
+npm-debug.log*
