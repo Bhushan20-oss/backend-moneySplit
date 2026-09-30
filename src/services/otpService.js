@@ -1,0 +1,116 @@
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
+const prisma = require("../config/database");
+
+const OTP_EXPIRY_MINUTES = 5;
+const MAX_OTP_ATTEMPTS = 5;
+
+function generateOtp() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+async function createPhoneOtp(userId) {
+  // Invalidate previous unverified OTPs
+  await prisma.phoneOtp.updateMany({
+    where: {
+      userId: Number(userId),
+      verified: false,
+    },
+    data: {
+      verified: true,
+    },
+  });
+
+  const otp = generateOtp();
+
+  const otpHash = await bcrypt.hash(otp, 10);
+
+  const expiresAt = new Date(
+    Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
+  );
+
+  const otpRecord = await prisma.phoneOtp.create({
+    data: {
+      userId: Number(userId),
+      otpHash,
+      expiresAt,
+    },
+  });
+
+  return {
+    otp,
+    otpId: otpRecord.id,
+    expiresAt,
+  };
+}
+
+async function verifyPhoneOtp(userId, otp) {
+  const otpRecord = await prisma.phoneOtp.findFirst({
+    where: {
+      userId: Number(userId),
+      verified: false,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (!otpRecord) {
+    throw new Error("OTP not found. Please request a new OTP");
+  }
+
+  if (new Date() > otpRecord.expiresAt) {
+    throw new Error("OTP has expired");
+  }
+
+  if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+    throw new Error("Maximum OTP attempts exceeded");
+  }
+
+  const isValid = await bcrypt.compare(
+    String(otp),
+    otpRecord.otpHash
+  );
+
+  if (!isValid) {
+    await prisma.phoneOtp.update({
+      where: {
+        id: otpRecord.id,
+      },
+      data: {
+        attempts: {
+          increment: 1,
+        },
+      },
+    });
+
+    throw new Error("Invalid OTP");
+  }
+
+  await prisma.$transaction([
+    prisma.phoneOtp.update({
+      where: {
+        id: otpRecord.id,
+      },
+      data: {
+        verified: true,
+      },
+    }),
+
+    prisma.user.update({
+      where: {
+        id: Number(userId),
+      },
+      data: {
+        phoneVerified: true,
+      },
+    }),
+  ]);
+
+  return true;
+}
+
+module.exports = {
+  createPhoneOtp,
+  verifyPhoneOtp,
+};

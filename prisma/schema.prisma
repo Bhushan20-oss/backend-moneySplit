@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+model User {
+  id            Int        @id @default(autoincrement())
+  name          String
+  email         String     @unique
+  phone         String?    @unique
+  passwordHash  String
+  phoneVerified Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  expenses      Expense[]
+  incomes Income[]
+  savings           Saving[]
+  bills             Bill[]
+  budgets           Budget[]
+  phoneOtps     PhoneOtp[]
+  passwordResetOtps PasswordResetOtp[]
+}
+
+model Expense {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  amount       Decimal  @db.Decimal(12, 2)
+  category     String
+  description  String?
+  expenseDate  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expenseDate])
+}
+
+model PhoneOtp {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetOtp {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+
+model Income {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Decimal  @db.Decimal(12, 2)
+  source      String
+  description String?
+  incomeDate  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([incomeDate])
+}
+
+
+model Saving {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Decimal  @db.Decimal(12, 2)
+  savingType  String
+  description String?
+  savingDate  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([savingDate])
+}
+
+model Bill {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  billName    String
+  amount      Decimal  @db.Decimal(12, 2)
+  category    String
+  dueDate     DateTime
+  status      String   @default("PENDING")
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+
+
+
+model Budget {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  category  String
+  amount    Decimal  @db.Decimal(12, 2)
+  month     Int
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, month, year])
+  @@index([userId])
+  @@index([month, year])
+}
